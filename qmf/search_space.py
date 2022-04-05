@@ -43,27 +43,24 @@ class InputVariable:
 
     """
 
-    def __init__(self, name: str, distribution: str, **kwargs):
+    def __init__(self, name: str, distribution: str, kwargs: dict):
         self.name = name
         self.distribution = distribution
-        self.distribution_name = self.distribution.__name__
-        assert self.distribution_name in IMPLEMENTED_DISTRIBUTIONS, NotImplementedError(
-            f"The given distribution '{self.distribution_name}' is not correct or has not been implemented yet"
+        assert self.distribution in IMPLEMENTED_DISTRIBUTIONS, NotImplementedError(
+            f"The given distribution '{self.distribution}' is not correct or has not been implemented yet"
         )
 
         self.init_distribution_kwargs = kwargs
         self.current_distribution_kwargs = kwargs
         self._check_kwargs()
 
-        self.current_sample = NotSampledYet()
+        self.current_sample = NotSampledYet
         self.history_samples = list()
-        self.history_distributions = self.history_distributions(
-            value=self.current_distribution_kwargs
-        )
+        self.history_distributions = list()
 
     def __repr__(self):
         rep = (
-            f"InputValue type {self.distribution_name}\n"
+            f"InputValue type {self.distribution}\n"
             f"Current value: {self.current_sample}\n"
             f"Current distribution: {self.current_distribution_kwargs}\n"
             f"Number of samples stored: {len(self.history_samples)}"
@@ -74,82 +71,49 @@ class InputVariable:
         return len(self.history_samples)
 
     def __add__(self, other):
-        assert isinstance(self.current_sample, other.current_sample), ValueError(
+        assert type(self) == type(other), ValueError(
             "To perform arithmetic operations between InputValues both distributions must return the same type"
         )
         return self.current_sample + other.current_sample
 
     def __sub__(self, other):
-        assert isinstance(self.current_sample, other.current_sample), ValueError(
+        assert type(self) == type(other), ValueError(
             "To perform arithmetic operations between InputValues both distributions must return the same type"
         )
         return self.current_sample - other.current_sample
 
     def __mul__(self, other):
-        assert isinstance(self.current_sample, other.current_sample), ValueError(
+        assert type(self) == type(other), ValueError(
             "To perform arithmetic operations between InputValues both distributions must return the same type"
         )
-        return self.current_sample + other.current_sample
+        return self.current_sample * other.current_sample
 
     def __truediv__(self, other):
-        assert isinstance(self.current_sample, other.current_sample), ValueError(
+        assert type(self) == type(other), ValueError(
             "To perform arithmetic operations between InputValues both distributions must return the same type"
         )
-        return self.current_sample + other.current_sample
+        return self.current_sample / other.current_sample
 
-    @property
-    def current_sample(self):
-        """ Getter method for current_sample attribute.
-        """
-        return self.__current_sample
-
-    @current_sample.setter
-    def current_sample(self, value):
-        """ Setter method for current_sample attribute.
-        """
-        self.__current_sample = value
-
-    @property
-    def history_samples(self):
-        """ Getter method for history_samples attribute.
-        """
-        return self.__history_samples
-
-    @history_samples.setter
-    def history_samples(self, value):
+    def history_samples_setter(self, value):
         """ Setter method for history_samples attribute.
         """
-        self.__history_samples.append(value)
+        self.history_samples.append(value)
 
-    @property
-    def current_distribution_kwargs(self):
-        """ Getter method for current_distribution_kwargs attribute.
-        """
-        return self.__current_distribution_kwargs
-
-    @current_distribution_kwargs.setter
-    def current_distribution_kwargs(self, value):
+    def current_distribution_kwargs_setter(self, value):
         """ Setter method for current_distribution_kwargs attribute.
         """
-        self.__current_distribution_kwargs = value
+        self.current_distribution_kwargs = value
 
-    @property
-    def history_distributions(self):
-        """ Getter method for history_distributions attribute.
-        """
-        return self.__history_distributions
-
-    @history_distributions.setter
-    def history_distributions(self, value):
+    def history_distributions_setter(self, value):
         """ Setter method for history_distributions attribute.
         """
-        self.__history_distributions_kwargs.append(value)
+        self.history_distributions.append(value)
 
     def _check_kwargs(self):
         """ Checks the correctness of the given distribution parameter arguments based on the selected distribution
         type.
         """
-        if self.distribution_name == "integer_random":
+        if self.distribution == "integer_random":
             assert (
                 "lower" in self.current_distribution_kwargs.keys()
             ), DistributionKwargError
@@ -157,10 +121,10 @@ class InputVariable:
                 "upper" in self.current_distribution_kwargs.keys()
             ), DistributionKwargError
             assert isinstance(
-                self.current_distribution_kwargs["lower"], Union[int, float]
+                self.current_distribution_kwargs["lower"], (int, float)
             ), TypeError
             assert isinstance(
-                self.current_distribution_kwargs["upper"], Union[int, float]
+                self.current_distribution_kwargs["upper"], (int, float)
             ), TypeError
             if "lower_inclusive" not in self.current_distribution_kwargs.keys():
                 self.current_distribution_kwargs["lower_inclusive"] = True
@@ -170,7 +134,7 @@ class InputVariable:
                 self.current_distribution_kwargs["lower"]
                 < self.current_distribution_kwargs["upper"]
             ), ValueError
-        elif self.distribution_name in ["integer_normal", "float_normal"]:
+        elif self.distribution in ["integer_normal", "float_normal"]:
             assert (
                 "mu" in self.current_distribution_kwargs.keys()
             ), DistributionKwargError
@@ -178,13 +142,13 @@ class InputVariable:
                 "rho" in self.current_distribution_kwargs.keys()
             ), DistributionKwargError
             assert isinstance(
-                self.current_distribution_kwargs["mu"], Union[int, float]
+                self.current_distribution_kwargs["mu"], (int, float)
             ), TypeError
             assert isinstance(
-                self.current_distribution_kwargs["rho"], Union[int, float]
+                self.current_distribution_kwargs["rho"], (int, float)
             ), TypeError
             assert self.current_distribution_kwargs["rho"] >= 0, ValueError
-        elif self.distribution_name == "float_random":
+        elif self.distribution == "float_random":
             assert (
                 "lower" in self.current_distribution_kwargs.keys()
             ), DistributionKwargError
@@ -192,34 +156,34 @@ class InputVariable:
                 "upper" in self.current_distribution_kwargs.keys()
             ), DistributionKwargError
             assert isinstance(
-                self.current_distribution_kwargs["lower"], Union[int, float]
+                self.current_distribution_kwargs["lower"], (int, float)
             ), TypeError
             assert isinstance(
-                self.current_distribution_kwargs["upper"], Union[int, float]
+                self.current_distribution_kwargs["upper"], (int, float)
             ), TypeError
             assert (
                 self.current_distribution_kwargs["lower"]
                 < self.current_distribution_kwargs["upper"]
             ), ValueError
-        elif self.distribution_name == "choice":
+        elif self.distribution == "choice":
             assert (
                 "options" in self.current_distribution_kwargs.keys()
             ), DistributionKwargError
             assert isinstance(
-                self.current_distribution_kwargs["options"], Union[list, tuple, set]
+                self.current_distribution_kwargs["options"], (list, tuple, set)
             ), TypeError
-        elif self.distribution_name == "constant":
+        elif self.distribution == "constant":
             assert (
                 "value" in self.current_distribution_kwargs.keys()
             ), DistributionKwargError
             assert isinstance(
-                self.current_distribution_kwargs["value"], Union[int, float, str, bool]
+                self.current_distribution_kwargs["value"], (int, float, str, bool)
             ), TypeError
 
     def _check_sampled_value(self):
         """ Checks if the current sampled value is inside the allowed values base don the value conditions.
         """
-        if self.distribution_name == "integer_random":
+        if self.distribution == "integer_random":
             if (
                 self.current_distribution_kwargs["lower_inclusive"]
                 and self.current_distribution_kwargs["upper_inclusive"]
@@ -260,17 +224,17 @@ class InputVariable:
                     >= self.current_distribution_kwargs["upper"]
                 ):
                     raise SampleOutOfBounds
-        elif self.distribution_name == "float_random":
+        elif self.distribution == "float_random":
             if (
                 self.current_distribution_kwargs["lower"]
                 > self.current_sample
                 >= self.current_distribution_kwargs["upper"]
             ):
                 raise SampleOutOfBounds
-        elif self.distribution_name == "choice":
+        elif self.distribution == "choice":
             if self.current_sample not in self.current_distribution_kwargs["options"]:
                 raise SampleOutOfBounds
-        elif self.distribution_name == "constant":
+        elif self.distribution == "constant":
             if self.current_sample != self.current_distribution_kwargs["value"]:
                 raise SampleOutOfBounds
 
@@ -287,7 +251,7 @@ class InputVariable:
             current_sample: value obtained from the current InputVariable distribution.
         """
         self.current_sample = NotSampledYet()
-        if self.distribution_name == "integer_random":
+        if self.distribution == "integer_random":
             lower_tol = (
                 0 if self.current_distribution_kwargs["lower_inclusive"] else TOL
             )
@@ -298,12 +262,12 @@ class InputVariable:
                 a=ceil(self.current_distribution_kwargs["lower"] + lower_tol),
                 b=floor(self.current_distribution_kwargs["upper"] + upper_tol),
             )
-        elif self.distribution_name == "integer_normal":
+        elif self.distribution == "integer_normal":
             self.current_sample = np.random.normal(
                 loc=self.current_distribution_kwargs["mu"],
                 scale=self.current_distribution_kwargs["rho"],
             ).astype(int)
-        elif self.distribution_name == "float_random":
+        elif self.distribution == "float_random":
             self.current_sample = random()
             self.current_sample = self.current_distribution_kwargs["lower"] + (
                 self.current_sample
@@ -312,16 +276,16 @@ class InputVariable:
                     - self.current_distribution_kwargs["lower"]
                 )
             )
-        elif self.distribution_name == "float_normal":
+        elif self.distribution == "float_normal":
             self.current_sample = np.random.normal(
                 loc=self.current_distribution_kwargs["mu"],
                 scale=self.current_distribution_kwargs["rho"],
             )
-        elif self.distribution_name == "choice":
+        elif self.distribution == "choice":
             self.current_sample = np.random.choice(
                 a=self.current_distribution_kwargs["options"]
             )
-        elif self.distribution_name == "constant":
+        elif self.distribution == "constant":
             self.current_sample = self.current_distribution_kwargs["value"]
         self._check_sampled_value()
 
@@ -331,22 +295,32 @@ class InputVariable:
             )
 
         if update_history:
-            self.history_samples(value=self.current_sample)
-            self.history_distributions(value=self.current_distribution_kwargs)
+            self.history_samples_setter(value=self.current_sample)
+            self.history_distributions_setter(value=self.current_distribution_kwargs)
 
         return self.current_sample
 
-    def conditioned_sample(self, new_kwargs: dict, update_history: bool = True):
+    def conditioned_sample(
+        self,
+        new_kwargs: dict,
+        update_history: bool = True,
+        return_to_init_distribution: bool = False,
+    ):
         """ Gets a sample of the value based on the given conditions.
 
         Args:
             new_kwargs: new conditions to consider when sampling a new value.
             update_history: if True, the sampled value will be appended to history_samples list after being check its
                 correctness.
+            return_to_init_distribution: if True, it draws a sample from the given distribution but keeps the original
+                distribution kwargs as the current distribution of the object.
         """
-        self.current_distribution_kwargs(value=new_kwargs)
+        self.current_distribution_kwargs_setter(value=new_kwargs)
         self._check_kwargs()
         self.random_sample(update_history=update_history)
+        if return_to_init_distribution:
+            self.current_distribution_kwargs_setter(value=self.init_distribution_kwargs)
+        return self.current_sample
 
     def constant_sample(self, value, update_history: bool = True):
         """ Gets a sample of the value based on the given conditions.
@@ -362,8 +336,8 @@ class InputVariable:
         self.current_sample = value
         self._check_sampled_value()
         if update_history:
-            self.history_samples(value=self.current_sample)
-            self.history_distributions(value="constant")
+            self.history_samples_setter(value=self.current_sample)
+            self.history_distributions_setter(value="constant")
         return value
 
 
@@ -493,92 +467,4 @@ class SearchSpace:
 
 
 if __name__ == "__main__":
-    from qmf.lambdas import power_base_2
-
-    int_random_test = InputVariable(
-        "int_random_test", "integer_random", {"lower": 1, "upper": 10}
-    )  # Test if non-given bounds auto-assigned
-    int_ub_random_test = InputVariable(
-        "int_ub_random_test",
-        "integer_random",
-        {"lower": 1, "upper": 10, "upper_inclusive": False},
-    )  # Test if non-given bounds auto-assigned
-    int_lb_random_test = InputVariable(
-        "int_lb_random_test",
-        "integer_random",
-        {"lower": 1, "upper": 10, "lower_inclusive": False},
-    )  # Test if non-given bounds auto-assigned
-    int_ub_lb_random_test = InputVariable(
-        "int_ub_lb_random_test",
-        "integer_random",
-        {"lower": 1, "upper": 10, "lower_inclusive": False, "upper_inclusive": False},
-    )
-    int_lambda_random_test = InputVariable(
-        "int_lambda_random_test",
-        "integer_random",
-        {"lower": 1, "upper": 10, "lambda": power_base_2},
-    )
-    int_all_neg_random_test = InputVariable(
-        "int_all_neg_random_test", "integer_random", {"lower": -8, "upper": -3}
-    )  # Test if non-given bounds auto-assigned
-    int_lower_neg_random_test = InputVariable(
-        "int_lower_neg_random_test", "integer_random", {"lower": -8, "upper": 3}
-    )  # Test if non-given bounds auto-assigned
-    # UNITTEST: name
-    # UNITTEST: type
-    # UNITTEST: exceptions handling
-
-    float_random_test = InputVariable(
-        "float_random_test", "float_random", {"lower": 1, "upper": 10}
-    )
-    float_lambda_random_test = InputVariable(
-        "float_lambda_random_test",
-        "float_random",
-        {"lower": 1, "upper": 10, "lambda": power_base_2},
-    )
-    float_all_neg_random_test = InputVariable(
-        "float_all_neg_random_test", "float_random", {"lower": -8, "upper": -3}
-    )
-    float_lower_neg_random_test = InputVariable(
-        "float_lower_neg_random_test", "float_random", {"lower": -8, "upper": 3}
-    )
-    # UNITTEST: name
-    # UNITTEST: type
-    # UNITTEST: exceptions handling
-
-    float_normal_test = InputVariable(
-        "float_normal_test", "float_normal", {"mu": 1, "rho": 10}
-    )
-    float_lambda_normal_test = InputVariable(
-        "float_lambda_normal_test",
-        "float_normal",
-        {"mu": 1, "rho": 10, "lambda": power_base_2},
-    )
-    float_mu_neg_normal_test = InputVariable(
-        "float_lower_neg_normal_test", "float_normal", {"mu": -8, "rho": 3}
-    )
-    # UNITTEST: name
-    # UNITTEST: type
-    # UNITTEST: exceptions handling
-    # UNITTEST: rho negative
-
-    int_normal_test = InputVariable(
-        "int_normal_test", "integer_normal", {"mu": 1, "rho": 10}
-    )
-    int_lambda_normal_test = InputVariable(
-        "int_lambda_normal_test",
-        "integer_normal",
-        {"mu": 1, "rho": 10, "lambda": power_base_2},
-    )
-    int_mu_neg_normal_test = InputVariable(
-        "int_lower_neg_normal_test", "integer_normal", {"mu": -8, "rho": 3}
-    )
-    # UNITTEST: name
-    # UNITTEST: type
-    # UNITTEST: exceptions handling
-    # UNITTEST: rho negative
-
-    # TODO: choice
-    # TODO: constant
-
-    # UNITTEST: lambdas
+    pass
