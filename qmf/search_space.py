@@ -114,6 +114,14 @@ class InputVariable:
         type.
         """
         if self.distribution == "integer_random":
+            for k in self.current_distribution_kwargs.keys():
+                assert k in [
+                    "upper",
+                    "lower",
+                    "upper_inclusive",
+                    "lower_inclusive",
+                    "lambda",
+                ], KeyError
             assert (
                 "lower" in self.current_distribution_kwargs.keys()
             ), DistributionKwargError
@@ -135,6 +143,8 @@ class InputVariable:
                 < self.current_distribution_kwargs["upper"]
             ), ValueError
         elif self.distribution in ["integer_normal", "float_normal"]:
+            for k in self.current_distribution_kwargs.keys():
+                assert k in ["mu", "rho", "lambda"], KeyError
             assert (
                 "mu" in self.current_distribution_kwargs.keys()
             ), DistributionKwargError
@@ -149,6 +159,14 @@ class InputVariable:
             ), TypeError
             assert self.current_distribution_kwargs["rho"] >= 0, ValueError
         elif self.distribution == "float_random":
+            for k in self.current_distribution_kwargs.keys():
+                assert k in [
+                    "upper",
+                    "lower",
+                    "upper_inclusive",
+                    "lower_inclusive",
+                    "lambda",
+                ], KeyError
             assert (
                 "lower" in self.current_distribution_kwargs.keys()
             ), DistributionKwargError
@@ -166,6 +184,8 @@ class InputVariable:
                 < self.current_distribution_kwargs["upper"]
             ), ValueError
         elif self.distribution == "choice":
+            for k in self.current_distribution_kwargs.keys():
+                assert k in ["options"], KeyError
             assert (
                 "options" in self.current_distribution_kwargs.keys()
             ), DistributionKwargError
@@ -173,6 +193,8 @@ class InputVariable:
                 self.current_distribution_kwargs["options"], (list, tuple, set)
             ), TypeError
         elif self.distribution == "constant":
+            for k in self.current_distribution_kwargs.keys():
+                assert k in ["value"], KeyError
             assert (
                 "value" in self.current_distribution_kwargs.keys()
             ), DistributionKwargError
@@ -260,13 +282,16 @@ class InputVariable:
             )
             self.current_sample = randint(
                 a=ceil(self.current_distribution_kwargs["lower"] + lower_tol),
-                b=floor(self.current_distribution_kwargs["upper"] + upper_tol),
+                b=floor(self.current_distribution_kwargs["upper"] - upper_tol),
             )
+            print(self.current_sample)
         elif self.distribution == "integer_normal":
-            self.current_sample = np.random.normal(
-                loc=self.current_distribution_kwargs["mu"],
-                scale=self.current_distribution_kwargs["rho"],
-            ).astype(int)
+            self.current_sample = int(
+                np.random.normal(
+                    loc=self.current_distribution_kwargs["mu"],
+                    scale=self.current_distribution_kwargs["rho"],
+                )
+            )
         elif self.distribution == "float_random":
             self.current_sample = random()
             self.current_sample = self.current_distribution_kwargs["lower"] + (
