@@ -181,14 +181,14 @@ class InputVariable:
             if self.current_distribution_kwargs["rho"] < 0:
                 raise ValueError
         elif self.distribution == "choice":
-            if self.current_distribution_kwargs.keys() != ["options"]:
+            if list(self.current_distribution_kwargs.keys()) != ["options"]:
                 raise MissingKwargError
             if not isinstance(
                 self.current_distribution_kwargs["options"], (list, tuple, set)
             ):
                 raise TypeKwargError
         elif self.distribution == "constant":
-            if self.current_distribution_kwargs.keys() != ["value"]:
+            if list(self.current_distribution_kwargs.keys()) != ["value"]:
                 raise MissingKwargError
             if not isinstance(
                 self.current_distribution_kwargs["value"],
@@ -381,6 +381,7 @@ class SearchSpace:
         self.search_space = dict()
         self.current_search_space = dict()
         self.history_search_space = list()
+        self.history_distribution_spaces = list()
 
     def __repr__(self):
         rep = ""
@@ -389,12 +390,14 @@ class SearchSpace:
         return rep
 
     def _update_history_samples(self):
-        """ Adds the current sampled search space to the history attribute.
+        """ Adds the current sampled search space to the history attribute, and the current search space distributions
+        to the respective history attribute.
         """
         self.history_search_space.append(self.current_search_space)
+        self.history_distribution_spaces.append(self.search_space)
 
     def add(self, input_variable: InputVariable):
-        """ Add an InputVariable object to the current SeachSpace instance.
+        """ Add an InputVariable object to the current SearchSpace instance.
 
         Args:
             input_variable: InputVariable containing the distribution, its parameters, and its name to be added to

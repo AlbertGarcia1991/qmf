@@ -504,27 +504,133 @@ class TestInputVariable(TestCase):
 
 class TestSearchSpace(TestCase):
     def test_add_InputVariable(self):
-        ...
-
-    def test_remove_InputVariable(self):
-        ...
+        se = SearchSpace()
+        for i in range(100):
+            self.assertEqual(first=i, second=len(se.search_space))
+            input_variable = InputVariable(
+                name=f"distribution_{i}",
+                distribution="float_random",
+                kwargs={"lower": 1, "upper": 10},
+            )
+            se.add(input_variable=input_variable)
 
     def test_add_and_remove_randomly_InputVariable(self):
-        ...
-
-    def test_sample_whole_search_space(self):
-        ...
+        se = SearchSpace()
+        for i in range(100):
+            input_variable = InputVariable(
+                name=f"distribution_{i}",
+                distribution="float_random",
+                kwargs={"lower": 1, "upper": 10},
+            )
+            se.add(input_variable=input_variable)
+        for i in range(100):
+            se.remove(name=f"distribution_{i}")
+            self.assertEqual(first=100 - i - 1, second=len(se.search_space))
 
     def test_history_search_space(self):
-        # Specifying to be update
-        # Not specifying to be updated
-        ...
+        input_variable_int_random = InputVariable(
+            name="integer_random_dist",
+            distribution="integer_random",
+            kwargs={"lower": 1, "upper": 10},
+        )
+        input_variable_int_normal = InputVariable(
+            name="integer_normal_dist",
+            distribution="integer_normal",
+            kwargs={"mu": 1, "rho": 0.5},
+        )
+        input_variable_float_random = InputVariable(
+            name="float_random_dist",
+            distribution="float_random",
+            kwargs={"lower": -1, "upper": 0},
+        )
+        input_variable_float_normal = InputVariable(
+            name="float_normal_dist",
+            distribution="float_normal",
+            kwargs={"mu": -10, "rho": 1.25},
+        )
+        input_variable_choice = InputVariable(
+            name="choice_dist",
+            distribution="choice",
+            kwargs={"options": ["A", "B", "C"]},
+        )
+        input_variable_constant = InputVariable(
+            name="constant_dist", distribution="constant", kwargs={"value": True}
+        )
+        se = SearchSpace()
+        se.add(input_variable=input_variable_int_random)
+        se.add(input_variable=input_variable_int_normal)
+        se.add(input_variable=input_variable_float_random)
+        se.add(input_variable=input_variable_float_normal)
+        se.add(input_variable=input_variable_choice)
+        se.add(input_variable=input_variable_constant)
+        for i in range(10):
+            se.sample_all_random()
+        self.assertEqual(first=10, second=len(se.history_search_space))
 
     def test_history_not_updated_search_space(self):
-        ...
+        input_variable_int_random = InputVariable(
+            name="integer_random_dist",
+            distribution="integer_random",
+            kwargs={"lower": 1, "upper": 10},
+        )
+        input_variable_int_normal = InputVariable(
+            name="integer_normal_dist",
+            distribution="integer_normal",
+            kwargs={"mu": 1, "rho": 0.5},
+        )
+        input_variable_float_random = InputVariable(
+            name="float_random_dist",
+            distribution="float_random",
+            kwargs={"lower": -1, "upper": 0},
+        )
+        input_variable_float_normal = InputVariable(
+            name="float_normal_dist",
+            distribution="float_normal",
+            kwargs={"mu": -10, "rho": 1.25},
+        )
+        input_variable_choice = InputVariable(
+            name="choice_dist",
+            distribution="choice",
+            kwargs={"options": ["A", "B", "C"]},
+        )
+        input_variable_constant = InputVariable(
+            name="constant_dist", distribution="constant", kwargs={"value": True}
+        )
+        se = SearchSpace()
+        se.add(input_variable=input_variable_int_random)
+        se.add(input_variable=input_variable_int_normal)
+        se.add(input_variable=input_variable_float_random)
+        se.add(input_variable=input_variable_float_normal)
+        se.add(input_variable=input_variable_choice)
+        se.add(input_variable=input_variable_constant)
+        for i in range(10):
+            se.sample_all_random(update_history_samples=False)
+        self.assertEqual(first=0, second=len(se.history_search_space))
 
-    def test_sample_whole_space_with_one_InputVariable_changed(self):
-        ...
+    # TODO: We are not keeping track of the history kwargs, just the sampled values
+    # BUG: Sampling a new value overwrites all history_search_space items with the new sampled value
+    def test_sample_whole_space_with_one_distribution_changed(self):
+        integer_1 = InputVariable(
+            name="integer_1",
+            distribution="integer_random",
+            kwargs={"lower": 1, "upper": 10},
+        )
+        integer_2 = InputVariable(
+            name="integer_2",
+            distribution="integer_random",
+            kwargs={"lower": 1, "upper": 10},
+        )
+        se = SearchSpace()
+        se.add(input_variable=integer_1)
+        se.add(input_variable=integer_2)
+        for i in range(10):
+            se.sample_all_random()
+        second_sample = se.sample_all_conditioned(
+            new_kwargs_dict={"integer_1": {"lower": 100, "upper": 101}}
+        )
+        self.assertEqual(first=2, second=len(se.history_search_space))
+        self.assertEqual(first=2, second=len(se.history_search_space))
+        self.assertEqual(first=2, second=len(se.history_search_space))
 
     def test_sample_whole_space_with_all_InputVariable_changed(self):
         ...
