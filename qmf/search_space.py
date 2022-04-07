@@ -1,10 +1,18 @@
+import os
 from math import ceil, floor
+from pathlib import Path
+from pickle import dump, load
 from random import randint, random
 from typing import Union
 
 import numpy as np
 
-from qmf.exceptions import DistributionKwargError, NotSampledYet, SampleOutOfBounds
+from qmf.exceptions import (
+    MissingKwargError,
+    NotSampledYet,
+    SampleOutOfBounds,
+    TypeKwargError,
+)
 from qmf.globals import IMPLEMENTED_DISTRIBUTIONS, TOL
 
 
@@ -41,14 +49,18 @@ class InputVariable:
          InputVariable("l1_penalty", "integer_float", {
             "upper": 1, "lower": 4, "lambda": lambda_power_base_2})
 
+    Raises:
+        NotImplementedError: when the given distribution does not exist across the implemented ones.
+
     """
 
     def __init__(self, name: str, distribution: str, kwargs: dict):
         self.name = name
         self.distribution = distribution
-        assert self.distribution in IMPLEMENTED_DISTRIBUTIONS, NotImplementedError(
-            f"The given distribution '{self.distribution}' is not correct or has not been implemented yet"
-        )
+        if self.distribution not in IMPLEMENTED_DISTRIBUTIONS:
+            raise NotImplementedError(
+                f"The given distribution '{self.distribution}' is not correct or has not been implemented yet"
+            )
 
         self.init_distribution_kwargs = kwargs
         self.current_distribution_kwargs = kwargs
@@ -71,27 +83,31 @@ class InputVariable:
         return len(self.history_samples)
 
     def __add__(self, other):
-        assert type(self) == type(other), ValueError(
-            "To perform arithmetic operations between InputValues both distributions must return the same type"
-        )
+        if type(self) != type(other):
+            raise ValueError(
+                "To perform arithmetic operations between InputValues both distributions must return the same type"
+            )
         return self.current_sample + other.current_sample
 
     def __sub__(self, other):
-        assert type(self) == type(other), ValueError(
-            "To perform arithmetic operations between InputValues both distributions must return the same type"
-        )
+        if type(self) != type(other):
+            raise ValueError(
+                "To perform arithmetic operations between InputValues both distributions must return the same type"
+            )
         return self.current_sample - other.current_sample
 
     def __mul__(self, other):
-        assert type(self) == type(other), ValueError(
-            "To perform arithmetic operations between InputValues both distributions must return the same type"
-        )
+        if type(self) != type(other):
+            raise ValueError(
+                "To perform arithmetic operations between InputValues both distributions must return the same type"
+            )
         return self.current_sample * other.current_sample
 
     def __truediv__(self, other):
-        assert type(self) == type(other), ValueError(
-            "To perform arithmetic operations between InputValues both distributions must return the same type"
-        )
+        if type(self) != type(other):
+            raise ValueError(
+                "To perform arithmetic operations between InputValues both distributions must return the same type"
+            )
         return self.current_sample / other.current_sample
 
     def history_samples_setter(self, value):
@@ -112,98 +128,80 @@ class InputVariable:
     def _check_kwargs(self):
         """ Checks the correctness of the given distribution parameter arguments based on the selected distribution
         type.
+
+        Raises:
+            KeyError: when at least one of the given kwargs keys does not match with the expected for the current
+                distribution type.
+            TypeError: when at least one of the given kwargs values does not match with the expected type.
+            ValueError: when at least one of the given kwargs values does not match with the expected range of values,
+                or does not follow the expected conditions (e.g. for random distributions lower bound must be lower than
+                the upper bound value).
+            DistributionKwargError: when at least one of the expected kwargs keys for the current distribution is not
+                present on the given arguments.
         """
-        if self.distribution == "integer_random":
+        if self.distribution in ["integer_random", "float_random"]:
             for k in self.current_distribution_kwargs.keys():
-                assert k in [
+                if k not in [
                     "upper",
                     "lower",
                     "upper_inclusive",
                     "lower_inclusive",
                     "lambda",
-                ], KeyError
-            assert (
-                "lower" in self.current_distribution_kwargs.keys()
-            ), DistributionKwargError
-            assert (
-                "upper" in self.current_distribution_kwargs.keys()
-            ), DistributionKwargError
-            assert isinstance(
-                self.current_distribution_kwargs["lower"], (int, float)
-            ), TypeError
-            assert isinstance(
-                self.current_distribution_kwargs["upper"], (int, float)
-            ), TypeError
+                ]:
+                    raise KeyError
+            if "lower" not in self.current_distribution_kwargs.keys():
+                raise MissingKwargError
+            if "upper" not in self.current_distribution_kwargs.keys():
+                raise MissingKwargError
+            if not isinstance(self.current_distribution_kwargs["lower"], (int, float)):
+                raise TypeKwargError
+            if not isinstance(self.current_distribution_kwargs["upper"], (int, float)):
+                raise TypeKwargError
             if "lower_inclusive" not in self.current_distribution_kwargs.keys():
                 self.current_distribution_kwargs["lower_inclusive"] = True
             if "upper_inclusive" not in self.current_distribution_kwargs.keys():
                 self.current_distribution_kwargs["upper_inclusive"] = True
-            assert (
+            if (
                 self.current_distribution_kwargs["lower"]
-                < self.current_distribution_kwargs["upper"]
-            ), ValueError
+                > self.current_distribution_kwargs["upper"]
+            ):
+                raise ValueError
         elif self.distribution in ["integer_normal", "float_normal"]:
             for k in self.current_distribution_kwargs.keys():
-                assert k in ["mu", "rho", "lambda"], KeyError
-            assert (
-                "mu" in self.current_distribution_kwargs.keys()
-            ), DistributionKwargError
-            assert (
-                "rho" in self.current_distribution_kwargs.keys()
-            ), DistributionKwargError
-            assert isinstance(
-                self.current_distribution_kwargs["mu"], (int, float)
-            ), TypeError
-            assert isinstance(
-                self.current_distribution_kwargs["rho"], (int, float)
-            ), TypeError
-            assert self.current_distribution_kwargs["rho"] >= 0, ValueError
-        elif self.distribution == "float_random":
-            for k in self.current_distribution_kwargs.keys():
-                assert k in [
-                    "upper",
-                    "lower",
-                    "upper_inclusive",
-                    "lower_inclusive",
-                    "lambda",
-                ], KeyError
-            assert (
-                "lower" in self.current_distribution_kwargs.keys()
-            ), DistributionKwargError
-            assert (
-                "upper" in self.current_distribution_kwargs.keys()
-            ), DistributionKwargError
-            assert isinstance(
-                self.current_distribution_kwargs["lower"], (int, float)
-            ), TypeError
-            assert isinstance(
-                self.current_distribution_kwargs["upper"], (int, float)
-            ), TypeError
-            assert (
-                self.current_distribution_kwargs["lower"]
-                < self.current_distribution_kwargs["upper"]
-            ), ValueError
+                if k not in ["mu", "rho", "lambda"]:
+                    raise KeyError
+            if "mu" not in self.current_distribution_kwargs.keys():
+                raise MissingKwargError
+            if "rho" not in self.current_distribution_kwargs.keys():
+                raise MissingKwargError
+            if not isinstance(self.current_distribution_kwargs["mu"], (int, float)):
+                raise TypeKwargError
+            if not isinstance(self.current_distribution_kwargs["rho"], (int, float)):
+                raise TypeKwargError
+            if self.current_distribution_kwargs["rho"] < 0:
+                raise ValueError
         elif self.distribution == "choice":
-            for k in self.current_distribution_kwargs.keys():
-                assert k in ["options"], KeyError
-            assert (
-                "options" in self.current_distribution_kwargs.keys()
-            ), DistributionKwargError
-            assert isinstance(
+            if self.current_distribution_kwargs.keys() != ["options"]:
+                raise MissingKwargError
+            if not isinstance(
                 self.current_distribution_kwargs["options"], (list, tuple, set)
-            ), TypeError
+            ):
+                raise TypeKwargError
         elif self.distribution == "constant":
-            for k in self.current_distribution_kwargs.keys():
-                assert k in ["value"], KeyError
-            assert (
-                "value" in self.current_distribution_kwargs.keys()
-            ), DistributionKwargError
-            assert isinstance(
-                self.current_distribution_kwargs["value"], (int, float, str, bool)
-            ), TypeError
+            if self.current_distribution_kwargs.keys() != ["value"]:
+                raise MissingKwargError
+            if not isinstance(
+                self.current_distribution_kwargs["value"],
+                (int, float, bool, str, list, set, tuple),
+            ):
+                raise TypeKwargError
 
     def _check_sampled_value(self):
         """ Checks if the current sampled value is inside the allowed values base don the value conditions.
+
+        Raises:
+            SampleOutOfBounds: when the sampled value does not match with the conditioning kwargs for the current
+                distribution.
         """
         if self.distribution == "integer_random":
             if (
@@ -329,21 +327,21 @@ class InputVariable:
         self,
         new_kwargs: dict,
         update_history: bool = True,
-        return_to_init_distribution: bool = False,
+        return_to_init_kwargs: bool = False,
     ):
         """ Gets a sample of the value based on the given conditions.
 
         Args:
             new_kwargs: new conditions to consider when sampling a new value.
-            update_history: if True, the sampled value will be appended to history_samples list after being check its
+            update_history: if True, the sampled value will be appended to history_samples list after being checked its
                 correctness.
-            return_to_init_distribution: if True, it draws a sample from the given distribution but keeps the original
+            return_to_init_kwargs: if True, it draws a sample from the given distribution but keeps the original
                 distribution kwargs as the current distribution of the object.
         """
         self.current_distribution_kwargs_setter(value=new_kwargs)
         self._check_kwargs()
         self.random_sample(update_history=update_history)
-        if return_to_init_distribution:
+        if return_to_init_kwargs:
             self.current_distribution_kwargs_setter(value=self.init_distribution_kwargs)
         return self.current_sample
 
@@ -368,127 +366,394 @@ class InputVariable:
 
 class SearchSpace:
     """ Contains the search space as individual InputVariable objects set, and all methods and attributes to work with
-    all of them (no specific for a single InputVariable). Conditional search spaces are handled inside this object,
-    deciding when and how to sample an InputVariable object based on the values of other ones.
+    all of them (no specific for a single InputVariable). Those added InputVariable objects can be sampled (entirely or
+    just some of them), change their parameters (kwards dictionaries), and the object itself can be pickled to a file
+    and be read and load again by a new instance.
     """
 
-    def __init__(self):
+    def __init__(self, tag: str = None):
+        """ Initializes the main attributes inside the object.
+
+        Args:
+            tag: name of the current search space if given, otherwise, will be set to None.
+        """
+        self.tag = tag
         self.search_space = dict()
-        self.sample_current = dict()
-        self.history_samples = list()
+        self.current_search_space = dict()
+        self.history_search_space = list()
 
     def __repr__(self):
         rep = ""
-        for k, v in self.sample_current.items():
+        for k, v in self.current_search_space.items():
             rep += f"Parameter {k}: {v}\n"
         return rep
 
-    @property
-    def search_space(self):
-        """ Getter method for search_space attribute.
+    def _update_history_samples(self):
+        """ Adds the current sampled search space to the history attribute.
         """
-        return self.__search_space
-
-    @search_space.setter
-    def search_space(self, value: dict):
-        """ Setter method for search_space attribute.
-        """
-        self.__search_space[value["key"]] = value["value"]
-
-    @property
-    def sample_current(self):
-        """ Getter method for sample_current attribute.
-        """
-        return self.__sample_current
-
-    @sample_current.setter
-    def sample_current(self, value):
-        """ Setter method for sample_current attribute.
-        """
-        self.__sample_current[value["key"]] = value["value"]
-
-    @property
-    def history_samples(self):
-        """ Getter method for history_samples attribute.
-        """
-        return self.__history_samples
-
-    @history_samples.setter
-    def history_samples(self, value):
-        """ Setter method for history_samples attribute.
-        """
-        self.__history_samples.append(value)
+        self.history_search_space.append(self.current_search_space)
 
     def add(self, input_variable: InputVariable):
-        # TODO
-        assert input_variable.name not in self.search_space.keys(), KeyError(
-            f"The given Key to add '{input_variable.name}' already exists in the SearchSpace dictionary"
-        )
-        arg_dict = {input_variable.name: input_variable}
-        self.search_space(value=arg_dict)
+        """ Add an InputVariable object to the current SeachSpace instance.
+
+        Args:
+            input_variable: InputVariable containing the distribution, its parameters, and its name to be added to
+                the current search space.
+
+        Raises:
+            KeyError: When the given InputVariable name already exists inside the current search space.
+        """
+        if input_variable.name in self.search_space.keys():
+            raise KeyError(
+                f"The given Key to add '{input_variable.name}' already exists in the SearchSpace dictionary"
+            )
+        self.search_space[input_variable.name] = input_variable
 
     def remove(self, name: str):
-        # TODO
-        assert name in self.search_space.keys(), KeyError(
-            f"The given Key to delete '{name}' does not exist in the SearchSpace dictionary"
-        )
+        """ Removes a InputVariable distribution from the instance by specifying its unique name.
+
+        Args:
+            name: name of the InputVariable object to be removed.
+
+        Raises:
+            KeyError: If the given name of the distribution to remove does not exist.
+        """
+        if name not in self.search_space.keys():
+            KeyError(
+                f"The given Key to delete '{name}' does not exist in the SearchSpace dictionary"
+            )
         del self.search_space[name]
 
-    def _update_history_samples(self):
-        # TODO
-        self.history_samples(value=self.sample_current)
+    def replace_distribution_kwargs(self, name: str, new_kwargs: dict):
+        """ Replaces the kwargs of the given distribution based on its name.
 
-    def sample_all(
+        Args:
+            name: name of the distribution to be replaced its kwargs.
+            new_kwargs: dictionary containing a new set of kwargs for the selected distribution.
+
+
+        Raises:
+            KeyError: If the given name of the distribution to update does not exist.
+        """
+        if name not in self.search_space.keys():
+            KeyError(
+                f"The given Key to delete '{name}' does not exist in the SearchSpace dictionary"
+            )
+        self.search_space[name] = InputVariable(
+            name=name,
+            distribution=self.search_space[name].distribution,
+            kwargs=new_kwargs,
+        )
+
+    def replace_distribution(self, name: str, new_distribution: InputVariable):
+        """ Replaces the whole given distribution.
+
+        Args:
+            name: name of the distribution to be replaced its kwargs.
+            new_distribution: new distribution to replace the selected one.
+
+        Raises:
+            KeyError: If the given name of the distribution to update does not exist.
+        """
+        if name not in self.search_space.keys():
+            KeyError(
+                f"The given Key to delete '{name}' does not exist in the SearchSpace dictionary"
+            )
+        self.remove(name=name)
+        self.add(input_variable=new_distribution)
+
+    def sample_all_random(
         self,
         update_history_samples: bool = True,
         update_input_variable_history: bool = True,
-    ):
-        # TODO
+    ) -> dict:
+        """ Samples all distributions inside the SearchSpace object. It uses the current distributions inside those
+        objects without modifying them. If we want to edit them before being sampled, we need to run the method
+        sample_all_new_kwargs() methods inside this same class.
+
+        Args:
+            update_history_samples: if True, the new sample will be added to the history attribute inside this class.
+            update_input_variable_history: if True, the new sample will be added to the history attribute inside each
+                InputVariable class.
+
+        Returns:
+            current_search_space: the newly sampled search space.
+        """
         for key, value in self.search_space.items():
-            self.sample_current[key] = value.random_sample(
+            self.current_search_space[key] = value.random_sample(
                 update_history=update_input_variable_history
             )
         if update_history_samples:
             self._update_history_samples()
+        return self.current_search_space
+
+    def sample_one_random(
+        self,
+        name: str,
+        update_history_samples: bool = True,
+        replace_history_samples: bool = False,
+        update_input_variable_history: bool = True,
+    ) -> Union[int, float, bool, str]:
+        """ Samples a single value from the requested distribution without changing its kwargs.
+
+        Args:
+            name: name of the distribution to be sampled.
+            update_history_samples: if True, a new set of sampled will be added to the search space history only
+                changing the new sampled distribution.
+            replace_history_samples: if True, the new sampled distribution will be replaced in the last value inside the
+                search space history attribute.
+            update_input_variable_history: if True, the new sample will be added to the history attribute inside each
+                InputVariable class.
+
+        Returns:
+            current_search_space: the newly sampled value.
+
+        Raises:
+            KeyError: if the given name of the distribution to update does not exist.
+            ValueError: if both update_history_samples and replace_history_samples arguments are set to True.
+        """
+        if name not in self.search_space.keys():
+            raise KeyError(
+                f"The given Key to delete '{name}' does not exist in the SearchSpace dictionary"
+            )
+        if update_history_samples and replace_history_samples:
+            raise ValueError(
+                "Both 'update_history_samples' and 'replace_history_samples' arguments cannot be True"
+            )
+        single_sample = self.search_space[name].random_sample(
+            update_history=update_input_variable_history
+        )
+        if update_history_samples:
+            self.current_search_space[name] = single_sample
+            self._update_history_samples()
+        elif replace_history_samples:
+            self.current_search_space[name] = single_sample
+            self.history_search_space[-1][name] = single_sample
+        return single_sample
 
     def sample_all_conditioned(
         self,
-        new_kwargs: dict,
+        new_kwargs_dict: dict,
+        return_to_init_kwargs: bool = False,
         update_history_samples: bool = True,
         update_input_variable_history: bool = True,
-    ):
-        # TODO
+    ) -> dict:
+        """ Samples all distributions inside the SearchSpace object changing the given distribution kwargs.
+
+        Args:
+            new_kwargs_dict: dictionary containing the new distribution kwargs where the key is the name of the
+                distribution and the value is the dictionary containing the new kwargs. If a distribution name is not
+                given in the new_kwargs_dict keys, it will keep its old distribution kwargs.
+            return_to_init_kwargs: if True, it draws a sample from the given distribution but keeps the original
+                distribution kwargs as the current distribution of the object.
+            update_history_samples: if True, the new sample will be added to the history attribute inside this class.
+            update_input_variable_history: if True, the new sample will be added to the history attribute inside each
+                InputVariable class.
+
+        Returns:
+            current_search_space: the newly sampled search space.
+        """
         for key, value in self.search_space.items():
-            if new_kwargs[key] is None:
-                self.sample_current[key] = value.random_sample(
-                    update_history=update_input_variable_history
+            if key in new_kwargs_dict.keys():
+                self.current_search_space[key] = value.conditioned_sample(
+                    new_kwargs=new_kwargs_dict[key],
+                    update_history=update_input_variable_history,
+                    return_to_init_kwargs=return_to_init_kwargs,
                 )
             else:
-                self.sample_current[key] = value.conditioned_sample(
-                    new_kwargs=new_kwargs[key],
-                    update_history=update_input_variable_history,
+                self.current_search_space[key] = value.random_sample(
+                    update_history=update_input_variable_history
                 )
         if update_history_samples:
             self._update_history_samples()
+        return self.current_search_space
 
-    def sample_individuals(
+    def sample_one_conditioned(
         self,
-        key: str,
+        name: str,
         new_kwargs: dict,
+        return_to_init_kwargs: bool = False,
+        update_history_samples: bool = True,
+        replace_history_samples: bool = False,
+        update_input_variable_history: bool = True,
+    ) -> Union[int, float, bool, str]:
+        """ Samples the requested distribution, changing its kwargs before drawing that sample.
+
+        Args:
+            name: name of the distribution to be sampled.
+            new_kwargs: dictionary containing the new distribution kwargs where the key is the name of the distribution
+                and the value is the dictionary containing the new kwargs. If a distribution name is not given in the
+                new_kwargs keys, it will keep its old distribution kwargs.
+            return_to_init_kwargs: if True, it draws a sample from the given distribution but keeps the original
+                distribution kwargs as the current distribution of the object.
+            update_history_samples: if True, a new set of sampled will be added to the search space history only
+                changing the new sampled distribution.
+            replace_history_samples: if True, the new sampled distribution will be replaced in the last value inside the
+                search space history attribute.
+            update_input_variable_history: if True, the new sample will be added to the history attribute inside each
+                InputVariable class.
+
+        Returns:
+            current_search_space: the newly sampled value.
+
+        Raises:
+            KeyError: if the given name of the distribution to update does not exist.
+            ValueError: if both update_history_samples and replace_history_samples arguments are set to True.
+        """
+        if name not in self.search_space.keys():
+            raise KeyError(
+                f"The given Key to delete '{name}' does not exist in the SearchSpace dictionary"
+            )
+        if update_history_samples and replace_history_samples:
+            raise ValueError(
+                "Both 'update_history_samples' and 'replace_history_samples' arguments cannot be True"
+            )
+        single_sample = self.search_space[name].conditioned_sample(
+            new_kwargs=new_kwargs,
+            update_history=update_input_variable_history,
+            return_to_init_kwargs=return_to_init_kwargs,
+        )
+        if update_history_samples:
+            self.current_search_space[name] = single_sample
+            self._update_history_samples()
+        elif replace_history_samples:
+            self.current_search_space[name] = single_sample
+            self.history_search_space[-1][name] = single_sample
+        return single_sample
+
+    def sample_all_constant(
+        self,
+        new_values: dict,
         update_history_samples: bool = True,
         update_input_variable_history: bool = True,
-    ):
-        # TODO
-        if new_kwargs is None:
-            self.sample_current[key] = self.random_sample(
-                update_history=update_input_variable_history
-            )
-        else:
-            self.sample_current[key] = self.conditioned_sample(
-                new_kwargs=new_kwargs, update_history=update_input_variable_history
-            )
+    ) -> dict:
+        """ Samples all distributions inside the SearchSpace object as constant values.
+
+        Args:
+            new_values: dictionary containing the new values for each distribution, where the distribution name is the
+                key. If a distribution name is not given in the new_values keys, it will keep its old distribution
+                kwargs.
+            update_history_samples: if True, the new sample will be added to the history attribute inside this class.
+            update_input_variable_history: if True, the new sample will be added to the history attribute inside each
+                InputVariable class.
+
+        Returns:
+            current_search_space: the newly sampled search space.
+        """
+        for key, value in self.search_space.items():
+            if key in new_values.keys():
+                self.current_search_space[key] = value.constant_sample(
+                    value=new_values[key], update_history=update_input_variable_history
+                )
+            else:
+                self.current_search_space[key] = value.random_sample(
+                    update_history=update_input_variable_history
+                )
         if update_history_samples:
             self._update_history_samples()
+        return self.current_search_space
+
+    def sample_one_constant(
+        self,
+        name: str,
+        new_value: Union[int, float, bool, str],
+        update_history_samples: bool = True,
+        replace_history_samples: bool = False,
+        update_input_variable_history: bool = True,
+    ) -> Union[int, float, bool, str]:
+        """ Samples a single constant value from the requested distribution.
+
+        Args:
+            name: name of the distribution to be sampled.
+            new_value: new value to give to the requested distribution.
+            update_history_samples: if True, a new set of sampled will be added to the search space history only
+                changing the new sampled distribution.
+            replace_history_samples: if True, the new sampled distribution will be replaced in the last value inside the
+                search space history attribute.
+            update_input_variable_history: if True, the new sample will be added to the history attribute inside each
+                InputVariable class.
+
+        Returns:
+            current_search_space: the newly sampled value.
+
+        Raises:
+            KeyError: if the given name of the distribution to update does not exist.
+            ValueError: if both update_history_samples and replace_history_samples arguments are set to True.
+        """
+        if name not in self.search_space.keys():
+            raise KeyError(
+                f"The given Key to delete '{name}' does not exist in the SearchSpace dictionary"
+            )
+        if update_history_samples and replace_history_samples:
+            raise ValueError(
+                "Both 'update_history_samples' and 'replace_history_samples' arguments cannot be True"
+            )
+        single_sample = self.search_space[name].constant_sample(
+            value=new_value, update_history=update_input_variable_history
+        )
+        if update_history_samples:
+            self.current_search_space[name] = single_sample
+            self._update_history_samples()
+        elif replace_history_samples:
+            self.current_search_space[name] = single_sample
+            self.history_search_space[-1][name] = single_sample
+        return single_sample
+
+    def dump_current_search_space(self, filename: str, dst: Path = Path(os.getcwd())):
+        """ Pickles the current search space dictionary to a file.
+
+        Args:
+            filename: name to give to the file.
+            dst: destination directory where to store the pickled file. If not given, will be stored in the current
+                working directory.
+
+        Raises:
+            NotADirectoryError: if the given directory where to save the file does not exist.
+        """
+        if not os.path.isdir(dst):
+            raise NotADirectoryError("The given destination directory does not exist")
+        with open(Path(dst + filename), "wb") as f:
+            dump(obj=self.current_search_space, file=f)
+
+    def dump_history_search_space(self, filename: str, dst: Path = Path(os.getcwd())):
+        """ Pickles the historical search spaces list to a file.
+
+        Args:
+            filename: name to give to the file.
+            dst: destination directory where to store the pickled file. If not given, will be stored in the current
+                working directory.
+
+        Raises:
+            NotADirectoryError: if the given directory where to save the file does not exist.
+        """
+        if not os.path.isdir(dst):
+            raise NotADirectoryError("The given destination directory does not exist")
+        with open(Path(dst + filename), "wb") as f:
+            dump(obj=self.history_search_space, file=f)
+
+    def load_search_space(
+        self, filename: str, dst: Path = Path(os.getcwd()), replace_tag: bool = False
+    ):
+        """ Load a saved SearchSpace object, assigning all attributes form the loaded one to the current instance.
+
+        Args:
+            filename: name of the file to load.
+            dst: destination directory where to store the pickled file. If not given, will search the file in the
+                current working directory.
+            replace_tag: if True, the current instance tag will be overwritten from the loaded object.
+
+        Raises:
+            NotADirectoryError: if the given directory from where to load the file does not exist.
+        """
+        if not os.path.isdir(dst):
+            raise NotADirectoryError("The given destination directory does not exist")
+        with open(Path(dst + filename), "rb") as f:
+            loaded_SearchSpace = load(file=f)
+        self.search_space = loaded_SearchSpace.search_space
+        self.history_search_space = loaded_SearchSpace.history_search_space
+        self.current_search_space = loaded_SearchSpace.current_search_space
+        if replace_tag:
+            self.tag = loaded_SearchSpace.tag
 
 
 if __name__ == "__main__":

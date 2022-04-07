@@ -10,7 +10,13 @@ class NotSampledYet:
     ...
 
 
-class DistributionKwargError:
+class MissingKwargError:
     """ When a required argument for a value distribution is not present"""
+
+    ...
+
+
+class TypeKwargError:
+    """ When one of values has a non valid type for a search space distribution"""
 
     ...
