@@ -607,8 +607,6 @@ class TestSearchSpace(TestCase):
             se.sample_all_random(update_history_samples=False)
         self.assertEqual(first=0, second=len(se.history_search_space))
 
-    # TODO: We are not keeping track of the history kwargs, just the sampled values
-    # BUG: Sampling a new value overwrites all history_search_space items with the new sampled value
     def test_sample_whole_space_with_one_distribution_changed(self):
         integer_1 = InputVariable(
             name="integer_1",
@@ -622,7 +620,6 @@ class TestSearchSpace(TestCase):
         )
         se = SearchSpace()
         se.add(input_variable=integer_1)
-        se.add(input_variable=integer_2)
         for i in range(10):
             se.sample_all_random()
         second_sample = se.sample_all_conditioned(

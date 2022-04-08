@@ -393,8 +393,8 @@ class SearchSpace:
         """ Adds the current sampled search space to the history attribute, and the current search space distributions
         to the respective history attribute.
         """
-        self.history_search_space.append(self.current_search_space)
-        self.history_distribution_spaces.append(self.search_space)
+        self.history_search_space.append(self.current_search_space.copy())
+        self.history_distribution_spaces.append(self.search_space.copy())
 
     def add(self, input_variable: InputVariable):
         """ Add an InputVariable object to the current SearchSpace instance.
